@@ -123,10 +123,48 @@ $(document).ready(function () {
 </div>
 
 
+<p>Human Activity Recognition (HAR) is an interesting topic, with monitors and sensors becoming widely used. See information on original data in the following website: <a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a></p>
+<p>Here, we look at the weight lifting exercise dataset. This dataset is concerned with classifying whether an a weight lifting exercise was done properly.</p>
 <div id="data" class="section level1">
 <h1>Data</h1>
-<p>The original data comes from the following website:</p>
-<p><a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a></p>
+<p>Let’s download training and test sets from the following websites:</p>
+<ul>
+<li><p>The training data: <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv" class="uri">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a></p></li>
+<li><p>The test data: <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv" class="uri">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</a></p></li>
+</ul>
+<p>Let’s import these data files into <code>R</code>, into objects <code>training</code> and <code>test</code>.</p>
+<p>The data contains 160 columns. Six people performed 10 repetitions of the “Unilateral” Dubbell Biceps Curl“, in five different ways. The variable we’re interested is called <code>classe</code>, and the unique values labeled as A through E, with the following descriptions:</p>
+<p>The classes stand for the following:</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Class</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">A</td>
+<td align="left">Exactly according to the specification</td>
+</tr>
+<tr class="even">
+<td align="left">B</td>
+<td align="left">Throwing the elbows to the front</td>
+</tr>
+<tr class="odd">
+<td align="left">C</td>
+<td align="left">Lifting the dumbbell only halfway</td>
+</tr>
+<tr class="even">
+<td align="left">D</td>
+<td align="left">Lowering the dumbbell only halfway</td>
+</tr>
+<tr class="odd">
+<td align="left">E</td>
+<td align="left">Throwing the hips to the front</td>
+</tr>
+</tbody>
+</table>
 </div>
 
 

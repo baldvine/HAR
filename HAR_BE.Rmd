@@ -11,6 +11,8 @@ output:
 ```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE, comment="")
 library(knitr)
+library(magrittr)
+library(caret)
 ```
 
 Human Activity Recognition (HAR) is an interesting topic, with monitors and sensors becoming widely used. See information on original data in the following website:
@@ -18,26 +20,30 @@ Human Activity Recognition (HAR) is an interesting topic, with monitors and sens
 
 Here, we look at the weight lifting exercise dataset. This dataset is concerned with classifying whether an a weight lifting exercise was done properly.
 
-# Data
+# Import Data
 
 Let's download training and test sets from the following websites:
 
-* The training data:
+* The data is the following (which will be split into training/test for cross-validation):
 [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
 
-* The test data:
+* The data to predict on:
 [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
 
-Let's import these data files into `R`, into objects `training` and `test`.
-```{r loadData, echo=FALSE}
-training <- read.csv(file = "./data/pml-training.csv",
-                     header = TRUE, stringsAsFactors = FALSE)
+Let's import these data files into `R`, into objects `mainData` and `data2predict`. After a little bit of trial and error, we settle on `na.strings = c("NA","#DIV/0!")` in order to handle missing or invalid values:
+```{r loadData, echo=TRUE}
+mainData <- read.csv(file = "./data/pml-training.csv",
+                     header = TRUE, stringsAsFactors = FALSE, 
+                     na.strings = c("NA","#DIV/0!"))
 
-test <- read.csv(file = "./data/pml-testing.csv",
-                     header = TRUE, stringsAsFactors = FALSE)
+data2predict <- read.csv(file = "./data/pml-testing.csv",
+                     header = TRUE, stringsAsFactors = FALSE,
+                     na.strings = c("NA","#DIV/0!"))
 ```
 
-The data contains `r length(training)` columns. Six people performed 10 repetitions of the "Unilateral" Dubbell Biceps Curl", in five different ways. The variable we're interested is called `classe`, and the unique values labeled as A through E, with the following descriptions:
+The data contains `r length(mainData)` columns. The columns are the same except for two columns, one from each dataset. The `mainData` contains the column "`r names(mainData)[!(names(mainData) %in% intersect(names(data2predict), names(mainData)))]`" and "`data2predict` contains the column `r names(data2predict)[!(names(data2predict) %in% intersect(names(data2predict), names(mainData)))]`".
+
+Six people performed 10 repetitions of the "Unilateral" Dubbell Biceps Curl", in five different ways. The variable we're interested is called `classe`, and the unique values labeled as A through E, with the following descriptions:
 
 The classes stand for the following:
 ```{r describeClasses,echo=FALSE}
@@ -50,4 +56,45 @@ kable(data.frame(Class=LETTERS[1:5],
                  )
       )
 ```
+
+## Remove unwanted columns
+
+We see that the first seven columns are of no use, as they contain line numbers, name of person, time stamps and two columns on "windows". We remove these columns from the `mainData`
+
+```{r}
+mainData <- 
+    mainData[,-match(c("X","user_name","raw_timestamp_part_1","raw_timestamp_part_2",
+                         "cvtd_timestamp","new_window","num_window"),
+                     names(mainData))]
+```
+
+We also notice that some columns contain only NA values. Let's find those columns for removal:
+
+```{r}
+colsNA <- 
+    sapply(names(mainData), 
+        function(colName){sum(is.na(mainData[,colName]))==nrow(mainData)})
+names(colsNA)[colsNA]
+mainData <- mainData[,!colsNA]
+```
+
+Ok, so now all the columns apart the last one (the classifier), are numerical values:
+```{r}
+sapply(mainData[,-length(mainData)], class) %>% unique
+```
+Note that we could inspect the data further (e.g. notice that some column only contain zeros), but from now on we expect any predictive algorithm to be able to find important columns.
+
+## Split into training and test set
+
+For cross-validation, let's split the data into a training and test set randomly with 60% and 40% of the initial data each, respectively.
+
+```{r}
+set.seed(42)
+inTrain <- createDataPartition(mainData$classe, p = 0.6)[[1]]
+training <- mainData[inTrain,]
+test <- mainData[-inTrain,]
+```
+
+# Building predictive models
+
 

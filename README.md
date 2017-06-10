@@ -10,4 +10,4 @@ This is data from the weight lifting exercise, where six people were asked to do
 * The test data:
 [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
 
-The file `HAR_BE.Rmd` (and associated `.md` and `.html` files) is the main file where the data gets imported and analyzed.
+The file `HAR_BE.Rmd` (and associated `.md` and `.html` files) is the main file where the data gets imported and analyzed. Note that the `.md` file will show up on GitHub :)

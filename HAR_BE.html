@@ -125,15 +125,23 @@ $(document).ready(function () {
 
 <p>Human Activity Recognition (HAR) is an interesting topic, with monitors and sensors becoming widely used. See information on original data in the following website: <a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a></p>
 <p>Here, we look at the weight lifting exercise dataset. This dataset is concerned with classifying whether an a weight lifting exercise was done properly.</p>
-<div id="data" class="section level1">
-<h1>Data</h1>
+<div id="import-data" class="section level1">
+<h1>Import Data</h1>
 <p>Let’s download training and test sets from the following websites:</p>
 <ul>
-<li><p>The training data: <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv" class="uri">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a></p></li>
-<li><p>The test data: <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv" class="uri">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</a></p></li>
+<li><p>The data is the following (which will be split into training/test for cross-validation): <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv" class="uri">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a></p></li>
+<li><p>The data to predict on: <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv" class="uri">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</a></p></li>
 </ul>
-<p>Let’s import these data files into <code>R</code>, into objects <code>training</code> and <code>test</code>.</p>
-<p>The data contains 160 columns. Six people performed 10 repetitions of the “Unilateral” Dubbell Biceps Curl“, in five different ways. The variable we’re interested is called <code>classe</code>, and the unique values labeled as A through E, with the following descriptions:</p>
+<p>Let’s import these data files into <code>R</code>, into objects <code>mainData</code> and <code>data2predict</code>. After a little bit of trial and error, we settle on <code>na.strings = c(&quot;NA&quot;,&quot;#DIV/0!&quot;)</code> in order to handle missing or invalid values:</p>
+<pre class="r"><code>mainData &lt;- read.csv(file = &quot;./data/pml-training.csv&quot;,
+                     header = TRUE, stringsAsFactors = FALSE, 
+                     na.strings = c(&quot;NA&quot;,&quot;#DIV/0!&quot;))
+
+data2predict &lt;- read.csv(file = &quot;./data/pml-testing.csv&quot;,
+                     header = TRUE, stringsAsFactors = FALSE,
+                     na.strings = c(&quot;NA&quot;,&quot;#DIV/0!&quot;))</code></pre>
+<p>The data contains 160 columns. The columns are the same except for two columns, one from each dataset. The <code>mainData</code> contains the column “classe” and “<code>data2predict</code> contains the column problem_id”.</p>
+<p>Six people performed 10 repetitions of the “Unilateral” Dubbell Biceps Curl“, in five different ways. The variable we’re interested is called <code>classe</code>, and the unique values labeled as A through E, with the following descriptions:</p>
 <p>The classes stand for the following:</p>
 <table>
 <thead>
@@ -165,6 +173,36 @@ $(document).ready(function () {
 </tr>
 </tbody>
 </table>
+<div id="remove-unwanted-columns" class="section level2">
+<h2>Remove unwanted columns</h2>
+<p>We see that the first seven columns are of no use, as they contain line numbers, name of person, time stamps and two columns on “windows”. We remove these columns from the <code>mainData</code></p>
+<pre class="r"><code>mainData &lt;- 
+    mainData[,-match(c(&quot;X&quot;,&quot;user_name&quot;,&quot;raw_timestamp_part_1&quot;,&quot;raw_timestamp_part_2&quot;,
+                         &quot;cvtd_timestamp&quot;,&quot;new_window&quot;,&quot;num_window&quot;),
+                     names(mainData))]</code></pre>
+<p>We also notice that some columns contain only NA values. Let’s find those columns for removal:</p>
+<pre class="r"><code>colsNA &lt;- 
+    sapply(names(mainData), 
+        function(colName){sum(is.na(mainData[,colName]))==nrow(mainData)})
+names(colsNA)[colsNA]</code></pre>
+<pre><code>[1] &quot;kurtosis_yaw_belt&quot;     &quot;skewness_yaw_belt&quot;     &quot;kurtosis_yaw_dumbbell&quot;
+[4] &quot;skewness_yaw_dumbbell&quot; &quot;kurtosis_yaw_forearm&quot;  &quot;skewness_yaw_forearm&quot; </code></pre>
+<pre class="r"><code>mainData &lt;- mainData[,!colsNA]</code></pre>
+<p>Ok, so now all the columns apart the last one (the classifier), are numerical values:</p>
+<pre class="r"><code>sapply(mainData[,-length(mainData)], class) %&gt;% unique</code></pre>
+<pre><code>[1] &quot;numeric&quot; &quot;integer&quot;</code></pre>
+</div>
+<div id="split-into-training-and-test-set" class="section level2">
+<h2>Split into training and test set</h2>
+<p>For cross-validation, let’s split the data into a training and test set randomly with 60% and 40% of the initial data each, respectively.</p>
+<pre class="r"><code>set.seed(42)
+inTrain &lt;- createDataPartition(mainData$classe, p = 0.6)[[1]]
+training &lt;- mainData[inTrain,]
+test &lt;- mainData[-inTrain,]</code></pre>
+</div>
+</div>
+<div id="building-predictive-models" class="section level1">
+<h1>Building predictive models</h1>
 </div>
 
 

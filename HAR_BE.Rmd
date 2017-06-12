@@ -68,21 +68,35 @@ mainData <-
                      names(mainData))]
 ```
 
-We also notice that some columns contain only NA values. Let's find those columns for removal:
-
+We also notice that some columns contain only NA values, or a significant amount of NAs. Let's inspect further:
 ```{r}
-colsNA <- 
-    sapply(names(mainData), 
-        function(colName){sum(is.na(mainData[,colName]))==nrow(mainData)})
-names(colsNA)[colsNA]
-mainData <- mainData[,!colsNA]
+countNAs <- sapply(mainData, function(x){sum(is.na(x))})
 ```
+The columns with no NAs are the actual measurements, and they have the following prefixes:
+```{r}
+regexpr("^[A-Za-z]+", names(countNAs[countNAs == 0])) %>% 
+    regmatches(names(countNAs[countNAs == 0]), m = .) %>% 
+    unique()
+```
+The minimum number of NAs in those columns which do have NA values, is `r min(countNAs[countNAs > 0])` (out of `r nrow(mainData))`). These columns are the derived quantities such as max, min, average, variance etc. In fact, all these NA columns have the following prefixes:
+```{r}
+regexpr("^[A-Za-z]+", names(countNAs[countNAs > 0])) %>% 
+    regmatches(names(countNAs[countNAs > 0]), m = .) %>% 
+    unique()
+```
+Let's remove these columns with derived valued and a bunch of NAs:
+```{r}
+mainData <- mainData[,names(countNAs[countNAs == 0])]
+```
+
 
 Ok, so now all the columns apart the last one (the classifier), are numerical values:
 ```{r}
 sapply(mainData[,-length(mainData)], class) %>% unique
 ```
-Note that we could inspect the data further (e.g. notice that some column only contain zeros), but from now on we expect any predictive algorithm to be able to find important columns.
+
+
+This brings us down to `r length(mainData)-1` predictors, all numeric inputs. From now on we expect any predictive algorithm to be able to find important columns, and we stop cleaning the data.
 
 ## Split into training and test set
 
@@ -97,4 +111,13 @@ test <- mainData[-inTrain,]
 
 # Building predictive models
 
+```{r}
+modelFitPCA_gbm <- 
+  train(classe~., method="gbm", data=training, 
+        preProcess = "pca", na.action = na.omit,
+        trControl = trainControl(preProcOptions = list(thresh = 0.8)))
+training.pred <- predict(object = modelFitPCA_gbm, newdata = training)
+test.pred <- predict(object = modelFitPCA_gbm, newdata = test)
+confusionMatrix(training.pred, training$classe)
+```
 

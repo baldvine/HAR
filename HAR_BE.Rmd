@@ -9,10 +9,11 @@ output:
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
-knitr::opts_chunk$set(echo = TRUE, comment="")
+knitr::opts_chunk$set(echo = TRUE, comment="", cache.path = "./data/")
 library(knitr)
 library(magrittr)
 library(caret)
+library(plotly)
 ```
 
 Human Activity Recognition (HAR) is an interesting topic, with monitors and sensors becoming widely used. See information on original data in the following website:
@@ -78,7 +79,7 @@ regexpr("^[A-Za-z]+", names(countNAs[countNAs == 0])) %>%
     regmatches(names(countNAs[countNAs == 0]), m = .) %>% 
     unique()
 ```
-The minimum number of NAs in those columns which do have NA values, is `r min(countNAs[countNAs > 0])` (out of `r nrow(mainData))`). These columns are the derived quantities such as max, min, average, variance etc. In fact, all these NA columns have the following prefixes:
+The minimum number of NAs in those columns which do have NA values, is `r min(countNAs[countNAs > 0])` (out of `r nrow(mainData)`). These columns are the derived quantities such as max, min, average, variance etc. In fact, all these NA columns have the following prefixes:
 ```{r}
 regexpr("^[A-Za-z]+", names(countNAs[countNAs > 0])) %>% 
     regmatches(names(countNAs[countNAs > 0]), m = .) %>% 
@@ -111,33 +112,126 @@ test <- mainData[-inTrain,]
 
 # Building predictive models
 
-Here, it is easy to go crazy and have lots of fun with various classification models. Let's contain ourselves and only try a few for now. First, we try linear discriminant analysis, LDA:
+Here, it is easy to go crazy and have lots of fun with various classification models. Let's contain ourselves and only try a few for now. We'll create a list of model fits and predictions in objects `modelFit` and `test.pred`, whose names correspond to the model used. We start by setting up empty lists:
+```{r}
+modelFit <- list()
+test.pred <- list()
+confMat <- list()
+```
 
+
+First, we try linear discriminant analysis, LDA:
 ```{r fit.lda, message=FALSE}
-modelFit.lda <- 
-  train(classe~., method="lda", data=training, na.action = na.omit)
-# It's good to check predictions on both the 
-training.pred.lda <- predict(object = modelFit.lda, newdata = training)
-test.pred.lda <- predict(object = modelFit.lda, newdata = test)
-confusionMatrix(training.pred.lda, training$classe)
-confusionMatrix(test.pred.lda, test$classe)
+myMethod <- "lda"
+modelFit[[myMethod]] <- 
+  train(classe~., method = myMethod, data = training, na.action = na.omit)
+#training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
+#confusionMatrix(training.pred.lda, training$classe)
+confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
+```
+
+Let's obtain the same predictions and confusion matrices for gradient boosting (method "gbm") and random forests (method "rf"). Since the change from the above chunk only involves changing the method name, we don't bother showing the output.
+
+```{r fit.gbm, echo=FALSE, message=FALSE, cache=TRUE}
+myMethod <- "gbm"
+modelFit[[myMethod]] <- 
+  train(classe~., method = myMethod, data = training, na.action = na.omit, verbose=FALSE)
+#training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
+#confusionMatrix(training.pred.lda, training$classe)
+confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
+```
+
+```{r fit.rf, echo=FALSE, cache=TRUE}
+myMethod <- "rf"
+modelFit[[myMethod]] <- 
+  train(classe~., method = myMethod, data = training, na.action = na.omit)
+#training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
+#confusionMatrix(training.pred.lda, training$classe)
+confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
 ```
 
 
-```{r fit.gbm}
-modelFit.gbm <- 
-  train(classe~., method="gbm", data=training, na.action = na.omit)
-training.pred.gbm <- predict(object = modelFit.gbm, newdata = training)
-test.pred.gbm <- predict(object = modelFit.gbm, newdata = test)
-confusionMatrix(training.pred.gbm, training$classe)
-confusionMatrix(test.pred.gbm, test$classe)
+## Inspecting accuracy
+
+Let's now do some basic check on how well the metods above performed. To this end, we use the aptly named object 'Accuracy', in the `overall` element of the confusion matrices:
+
+```{r showAccuracy, echo=FALSE}
+lapply(X = confMat, FUN = function(x){x$overall["Accuracy"]})
 ```
 
-```{r fit.rf}
-modelFit.rf <- 
-  train(classe~., method="rf", data=training, na.action = na.omit)
-training.pred.rf <- predict(object = modelFit.rf, newdata = training)
-test.pred.rf <- predict(object = modelFit.rf, newdata = test)
-confusionMatrix(training.pred.rf, training$classe)
-confusionMatrix(test.pred.rf, test$classe)
+So far, the random forests seem to be the best option in our case. Let's visualize its confusion matrix. First, we have to do some basic data handling to get a data frame:
+```{r createConfMatDF}
+myMethod <- "rf"
+myConfMat <- as.matrix(confMat[[myMethod]]$table) %*% diag(1/table(test$classe))
+# Fix the dimname issue:
+dimnames(myConfMat)[[2]] <- dimnames(myConfMat)$Prediction
+names(dimnames(myConfMat))[2] <- "Reference"
+# Melt for plotting in ggplot2:
+myConfDF <- reshape2::melt(myConfMat, value.name = "Ratio")
+
 ```
+
+```{r echo=FALSE, eval=FALSE}
+# NB: Color scale needs to be made to look "nice"
+plot.gg <- 
+    ggplot(data = myConfDF, 
+           aes(x = Reference, y = Prediction)) +
+    geom_tile(aes(fill = Ratio)) +
+    scale_fill_gradient2(low = "red", mid = "yellow", high = "green", midpoint = 0.01) + 
+    ggtitle(label = "Confusion matrix for random forests") +
+    theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Then, we visualize using plotly (not shown, but markdown has code for those interested):
+```{r visConfMatrix, echo=FALSE}
+# Set the color scale:
+# From https://plot.ly/r/heatmaps/
+vals <- unique(scales::rescale(c(myConfMat)))
+o <- order(vals, decreasing = FALSE)
+cols <- scales::col_numeric("Blues", domain = NULL)(vals)
+colz <- setNames(data.frame(vals[o], cols[o]), NULL)
+
+plot_ly(data = myConfDF,
+        x = myConfDF$Reference,
+        y = myConfDF$Prediction,
+        z = myConfDF$Ratio^0.5, # Just for visualization; tooltip has correct value
+        type = 'heatmap',
+        colorscale = colz,
+        showscale = FALSE,
+        hoverinfo = "text",
+        text = ~paste("Prediction: ", Prediction,
+                      "<br>Reference: ", Reference,
+                      "<br>Percentage true: ", sprintf(fmt = "%2.3f", 100*Ratio),"%")
+        ) %>% 
+    layout(title = "Confusion matrix for random forests",
+           xaxis = list(title = "Reference"), 
+           yaxis = list(title = "Prediction")
+           )
+
+```
+
+## In and out of sample errors
+
+To get a basic feel for whether we overfit the data or not, we compare the accuracy of random forests to that on the training set and on the test set.
+
+```{r}
+training.pred <- list()
+training.pred[["rf"]] <- predict(object = modelFit[["rf"]], newdata = training)
+
+confusionMatrix(training.pred[["rf"]], training$classe)$overall["Accuracy"]
+```
+
+# Prediction
+
+Finally, we predict the values on the prediction data set, `data2predict`, using the random forests model fit above. The data contains 20 rows, and so the output is a vector of length 20:
+```{r}
+
+predict(object = modelFit[["rf"]], newdata = data2predict)
+
+```
+
+

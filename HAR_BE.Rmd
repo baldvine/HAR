@@ -111,13 +111,33 @@ test <- mainData[-inTrain,]
 
 # Building predictive models
 
-```{r}
-modelFitPCA_gbm <- 
-  train(classe~., method="gbm", data=training, 
-        preProcess = "pca", na.action = na.omit,
-        trControl = trainControl(preProcOptions = list(thresh = 0.8)))
-training.pred <- predict(object = modelFitPCA_gbm, newdata = training)
-test.pred <- predict(object = modelFitPCA_gbm, newdata = test)
-confusionMatrix(training.pred, training$classe)
+Here, it is easy to go crazy and have lots of fun with various classification models. Let's contain ourselves and only try a few for now. First, we try linear discriminant analysis, LDA:
+
+```{r fit.lda, message=FALSE}
+modelFit.lda <- 
+  train(classe~., method="lda", data=training, na.action = na.omit)
+# It's good to check predictions on both the 
+training.pred.lda <- predict(object = modelFit.lda, newdata = training)
+test.pred.lda <- predict(object = modelFit.lda, newdata = test)
+confusionMatrix(training.pred.lda, training$classe)
+confusionMatrix(test.pred.lda, test$classe)
 ```
 
+
+```{r fit.gbm}
+modelFit.gbm <- 
+  train(classe~., method="gbm", data=training, na.action = na.omit)
+training.pred.gbm <- predict(object = modelFit.gbm, newdata = training)
+test.pred.gbm <- predict(object = modelFit.gbm, newdata = test)
+confusionMatrix(training.pred.gbm, training$classe)
+confusionMatrix(test.pred.gbm, test$classe)
+```
+
+```{r fit.rf}
+modelFit.rf <- 
+  train(classe~., method="rf", data=training, na.action = na.omit)
+training.pred.rf <- predict(object = modelFit.rf, newdata = training)
+test.pred.rf <- predict(object = modelFit.rf, newdata = test)
+confusionMatrix(training.pred.rf, training$classe)
+confusionMatrix(test.pred.rf, test$classe)
+```

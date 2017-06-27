@@ -243,8 +243,8 @@ confusionMatrix(training.pred[[myMethod]], training$classe)$overall["Accuracy"]
 
 Finally, we predict the values on the prediction data set, `data2predict`, using the random forests model fit above. The data contains 20 rows, and so the output is a vector of length 20:
 ```{r}
-
-predict(object = modelFit[["rf"]], newdata = data2predict)
+myMethod <- "rf.wPCA"
+predict(object = modelFit[[myMethod]], newdata = data2predict)
 
 ```
 

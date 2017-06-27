@@ -233,9 +233,10 @@ To get a basic feel for whether we overfit the data or not, we compare the accur
 
 ```{r}
 training.pred <- list()
-training.pred[["rf"]] <- predict(object = modelFit[["rf"]], newdata = training)
+myMethod <- "rf.wPCA"
+training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
 
-confusionMatrix(training.pred[["rf"]], training$classe)$overall["Accuracy"]
+confusionMatrix(training.pred[[myMethod]], training$classe)$overall["Accuracy"]
 ```
 
 # Prediction

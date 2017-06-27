@@ -155,7 +155,7 @@ confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
 
 ```{r fit.rf.wPCA, echo=FALSE, cache=TRUE}
 myMethod <- "rf.wPCA"
-pcaThresh <- 0.80
+pcaThresh <- 0.90
 modelFit[[myMethod]] <- 
   train(classe~., method = gsub("\\.[A-Za-z]+$","",myMethod),  
         data = training, preProcess = "pca", 

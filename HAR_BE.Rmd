@@ -153,7 +153,7 @@ test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
 confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
 ```
 
-```{r fit.rf, echo=FALSE, cache=TRUE}
+```{r fit.rf.wPCA, echo=FALSE, cache=TRUE}
 myMethod <- "rf.wPCA"
 pcaThresh <- 0.80
 modelFit[[myMethod]] <- 

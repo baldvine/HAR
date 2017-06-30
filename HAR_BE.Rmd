@@ -216,7 +216,7 @@ kable(data.frame(Method = names(modelFit),
 It is interesting to note that both models using random forests have perfect predictions on the training set. However good that may sound, it smells like overfitting. Our goal should not be a perfect fit on the training set, but rather obtain some kind of balance between variance and bias of our model fit.
 
 
-For that reason, I would prefer gradient boosting (method "gbm"). Let's visualize its confusion matrix using plotly (**not shown, but the R-markdown has code for those interested**):
+For that reason, I would prefer gradient boosting (method "gbm"). Let's visualize its confusion matrix using plotly (*the R-markdown has code for those interested*). **Unfortunately, the `.md` file does not support these interactive plots. See `.html` file.**
 ```{r visConfMatrix, echo=FALSE}
 # Select method and graph label:
 selectedMethod <- "gbm"

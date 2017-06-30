@@ -1,7 +1,7 @@
 ---
 title: "Human Activity Recognition"
 author: "Baldvin Einarsson"
-date: "6/3/2017"
+date: "6/30/2017"
 output: 
     html_document:
         keep_md: TRUE
@@ -9,7 +9,7 @@ output:
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
-knitr::opts_chunk$set(echo = TRUE, comment="", cache.path = "./data/", message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, comment = "", cache.path = "./data/", message = FALSE)
 library(knitr)
 library(magrittr)
 library(caret)
@@ -42,9 +42,9 @@ data2predict <- read.csv(file = "./data/pml-testing.csv",
                      na.strings = c("NA","#DIV/0!"))
 ```
 
-The data contains `r length(mainData)` columns. The columns are the same except for two columns, one from each dataset. The `mainData` contains the column "`r names(mainData)[!(names(mainData) %in% intersect(names(data2predict), names(mainData)))]`" and "`data2predict` contains the column `r names(data2predict)[!(names(data2predict) %in% intersect(names(data2predict), names(mainData)))]`".
+The data contains `r length(mainData)` columns. The columns are the same except for two columns, one from each dataset. The `mainData` contains the column "`r names(mainData)[!(names(mainData) %in% intersect(names(data2predict), names(mainData)))]`" and `data2predict` contains the column "`r names(data2predict)[!(names(data2predict) %in% intersect(names(data2predict), names(mainData)))]`".
 
-Six people performed 10 repetitions of the "Unilateral" Dubbell Biceps Curl", in five different ways. The variable we're interested is called `classe`, and the unique values labeled as A through E, with the following descriptions:
+Six people performed 10 repetitions of the "Unilateral" Dumbbell Biceps Curl", in five different ways. The variable we're interested is called `classe`, and the unique values labeled as A through E, with the following descriptions:
 
 The classes stand for the following:
 ```{r describeClasses,echo=FALSE}
@@ -57,6 +57,8 @@ kable(data.frame(Class=LETTERS[1:5],
                  )
       )
 ```
+
+What now follows is some menial data handling, removing columns which do not contain any relevant information etc. Please feel free to skip to the [section on splitting data](#splitData) or [model building section](#modelBuilding), where the real action is.
 
 ## Remove unwanted columns
 
@@ -99,7 +101,7 @@ sapply(mainData[,-length(mainData)], class) %>% unique
 
 This brings us down to `r length(mainData)-1` predictors, all numeric inputs. From now on we expect any predictive algorithm to be able to find important columns, and we stop cleaning the data.
 
-## Split into training and test set
+## Split into training and test set {#splitData}
 
 For cross-validation, let's split the data into a training and test set randomly with 60% and 40% of the initial data each, respectively.
 
@@ -110,84 +112,154 @@ training <- mainData[inTrain,]
 test <- mainData[-inTrain,]
 ```
 
-# Building predictive models
+# Building predictive models {#modelBuilding}
 
-Here, it is easy to go crazy and have lots of fun with various classification models. Let's contain ourselves and only try a few for now. We'll create a list of model fits and predictions in objects `modelFit` and `test.pred`, whose names correspond to the model used. We start by setting up empty lists:
-```{r initLists}
-modelFit <- list()
-test.pred <- list()
-confMat <- list()
+Here, it is easy to go crazy and have lots of fun with various classification models. Let's contain ourselves and only try a few for now. We'll create a list of model fits, predictions and confusion matrices, whose element names correspond to the model used.
+```{r initLists, echo=FALSE}
+modelFit <- list()          # the model fit object
+training.pred <- list()     # prediction on the training set
+test.pred <- list()         # prediction on the test set
+confMat.training <- list()  # confusion matrix on training set
+confMat.test <- list()      # confusion matrix on test set
 ```
 
 
-First, we try linear discriminant analysis, LDA:
-```{r fit.lda, message=FALSE}
+```{r setpcaThresh, echo=FALSE}
+
+# Make sure that chunks which use this have 'dependson="setpcaThresh"'
+pcaThresh <- 0.90
+
+```
+
+
+First, let's try linear discriminant analysis, LDA:
+```{r fit.lda, message=FALSE, cache=TRUE}
 myMethod <- "lda"
 modelFit[[myMethod]] <- 
   train(classe~., method = myMethod, data = training, na.action = na.omit)
-#training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+
+# Predict on both training and test set:
+training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
 test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
-#confusionMatrix(training.pred.lda, training$classe)
-confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
+
+# Obtain confusion matrices for both sets:
+confMat.training[[myMethod]] <- confusionMatrix(training.pred[[myMethod]], training$classe)
+confMat.test[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
 ```
 
-Let's obtain the same predictions and confusion matrices for gradient boosting (method "gbm") and random forests (method "rf"). Since the change from the above chunk only involves changing the method name, we don't bother showing the output.
+Let's obtain the predictions and confusion matrices for gradient boosting (method "gbm") and random forests (method "rf"). Since the change from the above chunk only involves changing the method name and minor changes, we don't show the code. Note that the code is available in the `.Rmd` file.
 
 ```{r fit.gbm, echo=FALSE, message=FALSE, cache=TRUE}
 myMethod <- "gbm"
 modelFit[[myMethod]] <- 
   train(classe~., method = myMethod, data = training, na.action = na.omit, verbose=FALSE)
-#training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
 test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
-#confusionMatrix(training.pred.lda, training$classe)
-confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
+confMat.training[[myMethod]] <- confusionMatrix(training.pred[[myMethod]], training$classe)
+confMat.test[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
+```
+
+```{r fit.gbm.wPCA, echo=FALSE, message=FALSE, cache=TRUE, dependson="setpcaThresh"}
+myMethod <- "gbm.wPCA"
+modelFit[[myMethod]] <- 
+  train(classe~., method = gsub("\\.[A-Za-z]+$","",myMethod),  
+        data = training, preProcess = "pca", 
+        trControl = trainControl(preProcOptions = list(thresh = pcaThresh)),
+        na.action = na.omit, verbose = FALSE)
+training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
+confMat.training[[myMethod]] <- confusionMatrix(training.pred[[myMethod]], training$classe)
+confMat.test[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
 ```
 
 ```{r fit.rf, echo=FALSE, cache=TRUE}
 myMethod <- "rf"
 modelFit[[myMethod]] <- 
   train(classe~., method = myMethod, data = training, na.action = na.omit)
-#training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
 test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
-#confusionMatrix(training.pred.lda, training$classe)
-confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
+confMat.training[[myMethod]] <- confusionMatrix(training.pred[[myMethod]], training$classe)
+confMat.test[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
 ```
 
-```{r fit.rf.wPCA, echo=FALSE, cache=TRUE}
+```{r fit.rf.wPCA, echo=FALSE, cache=TRUE, warning=FALSE, dependson="setpcaThresh"}
 myMethod <- "rf.wPCA"
-pcaThresh <- 0.90
 modelFit[[myMethod]] <- 
   train(classe~., method = gsub("\\.[A-Za-z]+$","",myMethod),  
         data = training, preProcess = "pca", 
         trControl = trainControl(preProcOptions = list(thresh = pcaThresh)),
         na.action = na.omit)
-#training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
+training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
 test.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = test)
-#confusionMatrix(training.pred.lda, training$classe)
-confMat[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
+confMat.training[[myMethod]] <- confusionMatrix(training.pred[[myMethod]], training$classe)
+confMat.test[[myMethod]] <- confusionMatrix(test.pred[[myMethod]], test$classe)
 ```
 
-## Inspecting accuracy
+Note that since gradient boosting and random forests are usually very computationally heavy, we also preprocess with principal components (with label having suffix ".wPCA"), explaining `r sprintf(fmt = "%2.1f", 100*pcaThresh)` percent of the variance. It is also interesting to compare the in and out of sample errors with or without preprocessing.
 
-Let's now do some basic check on how well the metods above performed. To this end, we use the aptly named object 'Accuracy', in the `overall` element of the confusion matrices:
+## Inspecting accuracy and in and out of sample errors
+
+Let's now do some basic check on how well the metods above performed. To this end, we use the aptly named object "Accuracy", in the `overall` element of the confusion matrices. For all methods used we inspect the accuracy on both the training and the test set:
 
 ```{r showAccuracy, echo=FALSE}
-lapply(X = confMat, FUN = function(x){x$overall["Accuracy"]})
+kable(data.frame(Method = names(modelFit), 
+                 Accuracy.train = sapply(X = confMat.training, 
+                                         FUN = function(x){x$overall["Accuracy"]}),
+                 Accuracy.test  = sapply(X = confMat.test, 
+                                         FUN = function(x){x$overall["Accuracy"]})
+                 ), 
+      col.names = c("Method","Accuracy on training set", "Accuracy on test set"),
+      row.names = FALSE, format.args = list(digits = 3))
+
 ```
 
-So far, the random forests seem to be the best option in our case. Let's visualize its confusion matrix. First, we have to do some basic data handling to get a data frame:
-```{r createConfMatDF}
-myMethod <- "rf.wPCA"
-myConfMat <- as.matrix(confMat[[myMethod]]$table) %*% diag(1/table(test$classe))
+It is interesting to note that both models using random forests have perfect predictions on the training set. However good that may sound, it smells like overfitting. Our goal should not be a perfect fit on the training set, but rather obtain some kind of balance between variance and bias of our model fit.
+
+
+For that reason, I would prefer gradient boosting (method "gbm"). Let's visualize its confusion matrix using plotly (**not shown, but the R-markdown has code for those interested**):
+```{r visConfMatrix, echo=FALSE}
+# Select method and graph label:
+selectedMethod <- "gbm"
+selectedMethod.label <- "gradient boosting"
+
+# First, we have to do some basic data handling to get a data frame:
+myConfMat <- as.matrix(confMat.test[[selectedMethod]]$table) %*% diag(1/table(test$classe))
+
 # Fix the dimname issue:
 dimnames(myConfMat)[[2]] <- dimnames(myConfMat)$Prediction
 names(dimnames(myConfMat))[2] <- "Reference"
+
 # Melt for plotting in ggplot2:
 myConfDF <- reshape2::melt(myConfMat, value.name = "Ratio")
 
+# Set the color scale:
+# From https://plot.ly/r/heatmaps/
+vals <- unique(scales::rescale(c(myConfMat)))
+o <- order(vals, decreasing = FALSE)
+cols <- scales::col_numeric("Blues", domain = NULL)(vals)
+colz <- setNames(data.frame(vals[o], cols[o]), NULL)
+
+# Woot woot!
+plot_ly(data = myConfDF,
+        x = myConfDF$Reference,
+        y = myConfDF$Prediction,
+        z = myConfDF$Ratio^0.5, # Just for visualization; tooltip has correct value
+        type = 'heatmap',
+        colorscale = colz,
+        showscale = FALSE,
+        hoverinfo = "text",
+        text = ~paste("Prediction: ", Prediction,
+                      "<br>Reference: ", Reference,
+                      "<br>Percentage predicted: ", sprintf(fmt = "%2.1f", 100*Ratio),"%")
+        ) %>% 
+    layout(title = paste0("Confusion matrix for ", selectedMethod.label),
+           xaxis = list(title = "Reference"), 
+           yaxis = list(title = "Prediction")
+           )
+
 ```
 
-```{r echo=FALSE, eval=FALSE}
+```{r vizConfMat_ggplot,echo=FALSE, eval=FALSE}
 # NB: Color scale needs to be made to look "nice"
 plot.gg <- 
     ggplot(data = myConfDF, 
@@ -199,52 +271,13 @@ plot.gg <-
 
 ```
 
-Then, we visualize using plotly (not shown, but markdown has code for those interested):
-```{r visConfMatrix, echo=FALSE}
-# Set the color scale:
-# From https://plot.ly/r/heatmaps/
-vals <- unique(scales::rescale(c(myConfMat)))
-o <- order(vals, decreasing = FALSE)
-cols <- scales::col_numeric("Blues", domain = NULL)(vals)
-colz <- setNames(data.frame(vals[o], cols[o]), NULL)
-
-plot_ly(data = myConfDF,
-        x = myConfDF$Reference,
-        y = myConfDF$Prediction,
-        z = myConfDF$Ratio^0.5, # Just for visualization; tooltip has correct value
-        type = 'heatmap',
-        colorscale = colz,
-        showscale = FALSE,
-        hoverinfo = "text",
-        text = ~paste("Prediction: ", Prediction,
-                      "<br>Reference: ", Reference,
-                      "<br>Percentage predicted: ", sprintf(fmt = "%2.3f", 100*Ratio),"%")
-        ) %>% 
-    layout(title = "Confusion matrix for random forests & PCA",
-           xaxis = list(title = "Reference"), 
-           yaxis = list(title = "Prediction")
-           )
-
-```
-
-## In and out of sample errors
-
-To get a basic feel for whether we overfit the data or not, we compare the accuracy of random forests to that on the training set and on the test set.
-
-```{r}
-training.pred <- list()
-myMethod <- "rf.wPCA"
-training.pred[[myMethod]] <- predict(object = modelFit[[myMethod]], newdata = training)
-
-confusionMatrix(training.pred[[myMethod]], training$classe)$overall["Accuracy"]
-```
-
 # Prediction
 
-Finally, we predict the values on the prediction data set, `data2predict`, using the random forests model fit above. The data contains 20 rows, and so the output is a vector of length 20:
+Finally, we predict the values on the prediction data set, `data2predict`, using the `r selectedMethod` model fit above. The data contains 20 rows, and so the output is a vector of length 20:
 ```{r}
-myMethod <- "rf.wPCA"
-predict(object = modelFit[[myMethod]], newdata = data2predict)
+
+print(selectedMethod)  # Value was set above
+predict(object = modelFit[[selectedMethod]], newdata = data2predict)
 
 ```
 
